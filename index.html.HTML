@@ -1,0 +1,1344 @@
+ <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossFit Performance Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+    <style>
+        .category-chip { transition: all 0.2s ease; }
+        .category-chip:hover { transform: scale(1.05); }
+        .tab-active { box-shadow: inset 0 -2px 0 #3b82f6; }
+        .wod-section { border-left: 4px solid #3b82f6; }
+        .weightlifting-section { border-left: 4px solid #ef4444; }
+        .history-item:hover, .pr-item:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }
+        .analysis-section, .progress-section { border-left: 4px solid #8b5cf6; }
+        .pr-section { border-left: 4px solid #f59e0b; }
+        .fc-event { cursor: pointer; font-size: 0.75rem; padding: 2px 4px; }
+        .fc-daygrid-event { margin-top: 2px; }
+        .fc-toolbar-title { font-size: 1.25rem; }
+        .fc-button { background-color: #3b82f6 !important; border-color: #3b82f6 !important; font-size: 0.875rem !important; padding: 0.25rem 0.5rem !important; }
+        .fc-button-primary:not(:disabled).fc-button-active { background-color: #1d4ed8 !important; }
+        .fc-daygrid-event-dot { border-color: white !important; margin-right: 3px !important; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2"><i class="fas fa-dumbbell text-blue-500 mr-2"></i> CrossFit Performance Tracker</h1>
+            <p class="text-gray-600">Registro completo de tus entrenamientos y progresos</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="flex border-b flex-wrap">
+                <button id="workout-tab" class="tab-active py-4 px-6 font-medium text-blue-600 flex-1 text-center min-w-max"><i class="fas fa-plus-circle mr-2"></i> Nuevo Entrenamiento</button>
+                <button id="history-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-history mr-2"></i> Histórico</button>
+                <button id="calendar-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-calendar-alt mr-2"></i> Calendario</button>
+                <button id="marks-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-trophy mr-2"></i> Mis Marcas</button>
+                <button id="progress-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-chart-line mr-2"></i> Progreso</button>
+                <button id="analysis-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-chart-pie mr-2"></i> Análisis</button>
+                <button id="movements-tab" class="py-4 px-6 font-medium text-gray-500 flex-1 text-center min-w-max"><i class="fas fa-edit mr-2"></i> Mis Movimientos</button>
+            </div>
+
+            <!-- Workout Form View -->
+            <div id="workout-form" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><div class="self-end"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha <span class="text-red-500">*</span></label><input type="date" id="workout-date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Entrenamiento <span class="text-red-500">*</span></label><select id="workout-type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="wod">Solo WOD</option><option value="weightlifting">Solo Weightlifting</option><option value="mixed">WOD + Weightlifting</option></select></div></div>
+                <div id="wod-section" class="wod-section bg-blue-50 p-4 rounded-lg mb-6"><div class="flex items-center mb-4"><i class="fas fa-heartbeat text-blue-600 mr-2 text-xl"></i><h2 class="text-xl font-semibold text-blue-800">WOD</h2></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"><div><label class="block text-sm font-medium text-gray-700 mb-1">Wod <span class="text-red-500">*</span></label><input type="text" id="wod-name" placeholder="Ej: Fran, Cindy..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"></div><div class="self-end mb-1"><div class="flex items-center p-2 rounded-md bg-blue-100"><input id="wod-is-benchmark" type="checkbox" class="h-4 w-4 text-yellow-500 border-gray-300 rounded focus:ring-yellow-400"><label for="wod-is-benchmark" class="ml-2 block text-sm font-medium text-blue-800"><i class="fas fa-trophy text-yellow-500 mr-1"></i> Es un WOD de Benchmark</label></div></div></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Estructura <span class="text-red-500">*</span></label><select id="wod-structure" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"><option value="amrap">AMRAP</option><option value="fortime">For Time</option><option value="rft">RFT</option><option value="emom">EMOM</option><option value="tabata">TABATA</option><option value="chipper">Chipper</option><option value="ladder">Ladder</option><option value="custom">Personalizado</option></select></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Movimientos del WOD</label><div id="selected-wod-movements" class="flex flex-wrap gap-2 mb-3"></div><div class="flex"><select id="wod-movement-select" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Selecciona un movimiento</option></select><button id="add-wod-movement" class="bg-blue-500 text-white px-3 py-2 rounded-r-md hover:bg-blue-600 transition"><i class="fas fa-plus"></i></button></div></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Resultado <span class="text-red-500">*</span></label><input type="text" id="wod-result" placeholder="Ej: 8:30, 5 rondas + 12 reps" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Nivel de Esfuerzo (RPE)</label><div class="flex justify-between mt-2"><div class="rpe-option text-center cursor-pointer p-2 rounded-md" data-level="1"><div class="text-2xl">😴</div><div class="text-xs">Muy fácil</div></div><div class="rpe-option text-center cursor-pointer p-2 rounded-md" data-level="2"><div class="text-2xl">🙂</div><div class="text-xs">Fácil</div></div><div class="rpe-option text-center cursor-pointer p-2 rounded-md bg-blue-100" data-level="3"><div class="text-2xl">😊</div><div class="text-xs">Moderado</div></div><div class="rpe-option text-center cursor-pointer p-2 rounded-md" data-level="4"><div class="text-2xl">😅</div><div class="text-xs">Desafiante</div></div><div class="rpe-option text-center cursor-pointer p-2 rounded-md" data-level="5"><div class="text-2xl">🔥</div><div class="text-xs">Intenso</div></div><div class="rpe-option text-center cursor-pointer p-2 rounded-md" data-level="6"><div class="text-2xl">💀</div><div class="text-xs">Máximo</div></div></div><input type="hidden" id="wod-rpe-level" value="3"></div></div>
+                <div id="weightlifting-section" class="weightlifting-section bg-red-50 p-4 rounded-lg mb-6"><div class="flex items-center mb-4"><i class="fas fa-dumbbell text-red-600 mr-2 text-xl"></i><h2 class="text-xl font-semibold text-red-800">Weightlifting</h2></div><div id="weightlifting-exercises"></div><button id="add-weightlifting-exercise" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition flex items-center mt-2"><i class="fas fa-plus mr-2"></i> Añadir Ejercicio</button></div>
+                <div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">Notas</label><textarea id="workout-notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Observaciones sobre el entrenamiento..."></textarea></div>
+                <div class="flex justify-end"><input type="hidden" id="editing-workout-id"><button id="save-workout" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition flex items-center"><i class="fas fa-save mr-2"></i> Guardar Entrenamiento</button></div>
+            </div>
+
+            <!-- History View -->
+            <div id="history-view" class="p-6 hidden"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-semibold text-gray-800 flex items-center"><i class="fas fa-history text-blue-500 mr-2"></i> Histórico</h2><button id="export-csv" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition flex items-center text-sm"><i class="fas fa-file-export mr-2"></i> Exportar a CSV</button></div><div class="mb-4 flex flex-wrap gap-2"><button class="filter-btn bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm" data-filter="all">Todos</button><button class="filter-btn bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm" data-filter="wod">Solo WOD</button><button class="filter-btn bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm" data-filter="weightlifting">Solo Weightlifting</button><button class="filter-btn bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm" data-filter="mixed">WOD + Weightlifting</button></div><div id="workouts-list" class="space-y-4"></div></div>
+
+            <!-- Calendar View -->
+            <div id="calendar-view" class="p-6 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                        <i class="fas fa-calendar-alt text-blue-500 mr-2"></i> Calendario de Entrenamientos
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="calendar-prev" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button id="calendar-today" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm">
+                            Hoy
+                        </button>
+                        <button id="calendar-next" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-md text-sm">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="calendar-container"></div>
+            </div>
+
+            <!-- Marks View -->
+            <div id="marks-view" class="p-6 hidden"><h2 class="text-xl font-semibold text-gray-800 mb-6">Mis Marcas y RMs</h2><div class="pr-section bg-yellow-50 p-4 rounded-lg mb-8"><h3 class="text-lg font-semibold text-yellow-800 mb-4 flex items-center"><i class="fas fa-award mr-2"></i> A - WOD Benchmarks</h3><div id="benchmark-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div><div class="weightlifting-section bg-red-50 p-4 rounded-lg"><h3 class="text-lg font-semibold text-red-800 mb-4 flex items-center"><i class="fas fa-medal mr-2"></i> B - Records de RM</h3><div id="rm-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></div></div>
+
+            <!-- Progress View -->
+            <div id="progress-view" class="p-6 hidden">
+                <div class="space-y-8">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center"><i class="fas fa-chart-line text-green-500 mr-2"></i> Progreso en Benchmarks</h2>
+                        <div class="progress-section bg-green-50 p-4 rounded-lg">
+                            <div class="flex items-center mb-4">
+                                <label for="benchmark-progress-select" class="mr-2 font-medium text-green-800">Ver progreso para:</label>
+                                <select id="benchmark-progress-select" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"></select>
+                            </div>
+                            <div id="progress-chart-container">
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                            <div id="no-progress-data" class="hidden text-center p-8">
+                                <i class="fas fa-search-dollar text-gray-300 text-4xl mb-3"></i>
+                                <p class="text-gray-500">No hay suficientes datos para este benchmark.</p>
+                                <p class="text-sm text-gray-400">Necesitas al menos dos registros del mismo WOD de benchmark.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center"><i class="fas fa-weight text-blue-500 mr-2"></i> Análisis de Volumen e Intensidad</h2>
+                        <div class="progress-section bg-blue-50 p-4 rounded-lg mb-6">
+                            <div class="flex items-center mb-4">
+                                <label for="volume-period-select" class="mr-2 font-medium text-blue-800">Periodo:</label>
+                                <select id="volume-period-select" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mr-4">
+                                    <option value="weekly">Semanal</option>
+                                    <option value="monthly">Mensual</option>
+                                </select>
+                                <label for="volume-weeks-select" class="mr-2 font-medium text-blue-800">Semanas:</label>
+                                <select id="volume-weeks-select" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="4">4</option>
+                                    <option value="8">8</option>
+                                    <option value="12">12</option>
+                                </select>
+                            </div>
+                            <div class="mb-6">
+                                <h3 class="font-semibold text-blue-800 mb-4 text-center">Volumen Total por Categoría</h3>
+                                <canvas id="volumeStackedChart"></canvas>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-blue-800 mb-4 text-center">Intensidad Media (RPE)</h3>
+                                <canvas id="rpeTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis View -->
+            <div id="analysis-view" class="p-6 hidden"><h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center"><i class="fas fa-chart-pie text-purple-500 mr-2"></i> Análisis General</h2><div id="analysis-content" class="space-y-8"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div class="bg-blue-50 p-4 rounded-lg"><p class="text-sm text-blue-700 font-medium">Entrenamientos</p><p id="total-workouts-stat" class="text-2xl font-bold text-blue-900">0</p></div><div class="bg-red-50 p-4 rounded-lg"><p class="text-sm text-red-700 font-medium">WODs</p><p id="total-wods-stat" class="text-2xl font-bold text-red-900">0</p></div><div class="bg-yellow-50 p-4 rounded-lg"><p class="text-sm text-yellow-700 font-medium">Benchmarks</p><p id="total-benchmark-wods-stat" class="text-2xl font-bold text-yellow-900">0</p></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center"><div class="analysis-section bg-purple-50 p-4 rounded-lg"><h3 class="font-semibold text-purple-800 mb-4 text-center">Frecuencia (Últimos 6 meses)</h3><canvas id="frequencyChart"></canvas></div><div class="analysis-section bg-purple-50 p-4 rounded-lg"><h3 class="font-semibold text-purple-800 mb-4 text-center">Estructuras de WOD</h3><div class="max-w-xs mx-auto"><canvas id="wodStructureChart"></canvas></div></div></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center"><div class="analysis-section bg-purple-50 p-4 rounded-lg"><h3 class="font-semibold text-purple-800 mb-4 text-center">Balance de Categorías</h3><div class="max-w-md mx-auto"><canvas id="movementCategoryChart"></canvas></div></div><div class="analysis-section bg-purple-50 p-4 rounded-lg"><h3 class="font-semibold text-purple-800 mb-4 text-center">Top 5 Movimientos</h3><canvas id="topMovementsChart"></canvas></div></div><div class="analysis-section bg-purple-50 p-4 rounded-lg"><div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-purple-800">Volumen de Weightlifting</h3><select id="volume-movement-select" class="px-3 py-1 border border-gray-300 rounded-md focus:outline-none text-sm"></select></div><canvas id="volumeChart"></canvas></div></div><div id="no-analysis-data" class="hidden bg-gray-50 p-8 text-center rounded-lg"><i class="fas fa-database text-gray-300 text-4xl mb-3"></i><p class="text-gray-500">No hay datos para generar análisis.</p></div></div>
+
+            <!-- Movements Manager View -->
+            <div id="movements-manager" class="p-6 hidden"><h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center"><i class="fas fa-edit text-blue-500 mr-2"></i> Administrar Movimientos</h2><div class="bg-gray-50 p-4 rounded-lg mb-6"><h3 class="text-lg font-medium text-gray-700 mb-3">Añadir Nuevo Movimiento</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"><div><label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label><input type="text" id="new-movement-name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Categoría <span class="text-red-500">*</span></label><select id="new-movement-category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="weightlifting">Weightlifting</option><option value="gymnastics">Gimnásticos</option><option value="bodyweight">Bodyweight</option><option value="cardio">Cardio</option><option value="other">Otros</option></select></div></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">Descripción (Opcional)</label><textarea id="new-movement-description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea></div><button id="add-new-movement" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center"><i class="fas fa-plus mr-2"></i> Añadir</button></div><div><h3 class="text-lg font-medium text-gray-700 mb-3">Mis Movimientos</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="movements-list"></div></div></div>
+        </div>
+    </div>
+
+    <!-- Templates -->
+    <template id="weightlifting-exercise-template"><div class="weightlifting-exercise bg-white p-4 rounded-lg border border-gray-200 mb-4"><div class="flex justify-between items-center mb-3"><h3 class="font-medium text-gray-800 flex items-center"><i class="fas fa-dumbbell text-red-500 mr-2"></i><span class="exercise-name"></span></h3><div class="flex items-center"><input type="checkbox" class="exercise-is-rm h-4 w-4 text-red-500 border-gray-300 rounded focus:ring-red-400 mr-2"><label class="text-sm font-medium text-red-800">Test de RM</label><button class="delete-exercise text-red-500 hover:text-red-700 ml-4"><i class="fas fa-trash"></i></button></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3"><div><label class="block text-sm font-medium text-gray-700 mb-1">Movimiento <span class="text-red-500">*</span></label><select class="exercise-movement w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></select></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Rondas <span class="text-red-500">*</span></label><input type="number" min="1" value="1" class="exercise-rounds w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></div></div><div class="exercise-sets space-y-2"></div><button class="add-set mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center"><i class="fas fa-plus-circle mr-1"></i> Añadir serie</button></div></template>
+    <template id="set-template"><div class="set-row grid grid-cols-3 gap-2 items-center"><div><label class="block text-xs text-gray-600 mb-1">Reps</label><input type="number" class="set-reps w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"></div><div><label class="block text-xs text-gray-600 mb-1">Peso (kg)</label><input type="number" step="0.25" class="set-weight w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"></div><div><button class="delete-set text-red-500 hover:text-red-700 mt-3"><i class="fas fa-times"></i></button></div></div></template>
+    <template id="workout-history-template"><div class="history-item bg-white p-4 rounded-lg border border-gray-200 transition"><div class="flex justify-between items-start mb-2"><h3 class="font-semibold text-gray-800"><span class="workout-date"></span> - <span class="workout-type"></span></h3><div class="flex space-x-2"><button class="edit-workout text-blue-600 hover:text-blue-800"><i class="fas fa-edit"></i></button><button class="delete-workout text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button></div></div><div class="workout-details space-y-3"></div></div></template>
+    <template id="benchmark-wod-template"><div class="pr-item bg-white p-4 rounded-lg border border-gray-200 shadow-sm transition"><div class="flex justify-between items-start mb-2"><h4 class="font-medium text-gray-900"><i class="fas fa-award text-yellow-500 mr-2"></i><span class="benchmark-name"></span></h4><span class="text-lg font-bold text-blue-600 benchmark-result"></span></div><p class="text-sm text-gray-500 mb-4"><i class="fas fa-calendar-alt mr-1"></i> <span class="benchmark-date"></span></p><div class="flex justify-end space-x-3"><button class="edit-benchmark text-sm text-blue-600 hover:underline">Modificar</button><button class="remove-benchmark text-sm text-red-600 hover:underline">Quitar de Marcas</button></div></div></template>
+    <template id="rm-record-template"><div class="pr-item bg-white p-4 rounded-lg border border-gray-200 shadow-sm transition"><div class="flex justify-between items-start mb-2"><h4 class="font-medium text-gray-900"><i class="fas fa-medal text-red-500 mr-2"></i><span class="rm-name"></span></h4><span class="text-lg font-bold text-red-600 rm-result"></span></div><p class="text-sm text-gray-500"><i class="fas fa-calendar-alt mr-1"></i> <span class="rm-date"></span></p></div></template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- DATA & CONFIG ---
+    const movementCategories = { 
+        'weightlifting': { name: 'Weightlifting', icon: 'fa-dumbbell', color: 'bg-red-100 text-red-800', chartColor: 'rgba(239, 68, 68, 0.7)' }, 
+        'gymnastics': { name: 'Gimnásticos', icon: 'fa-person-booth', color: 'bg-blue-100 text-blue-800', chartColor: 'rgba(59, 130, 246, 0.7)' }, 
+        'bodyweight': { name: 'Bodyweight', icon: 'fa-user', color: 'bg-green-100 text-green-800', chartColor: 'rgba(16, 185, 129, 0.7)' }, 
+        'cardio': { name: 'Cardio', icon: 'fa-running', color: 'bg-purple-100 text-purple-800', chartColor: 'rgba(139, 92, 246, 0.7)' }, 
+        'other': { name: 'Otros', icon: 'fa-ellipsis-h', color: 'bg-yellow-100 text-yellow-800', chartColor: 'rgba(245, 158, 11, 0.7)' } 
+    };
+    
+    const defaultMovements = [ 
+        {id: 1, name: 'Snatch', cat: 'weightlifting'}, 
+        {id: 2, name: 'Clean & Jerk', cat: 'weightlifting'}, 
+        {id: 3, name: 'Deadlift', cat: 'weightlifting'}, 
+        {id: 4, name: 'Back Squat', cat: 'weightlifting'}, 
+        {id: 5, name: 'Front Squat', cat: 'weightlifting'}, 
+        {id: 6, name: 'Bench Press', cat: 'weightlifting'}, 
+        {id: 7, name: 'Thruster', cat: 'weightlifting'}, 
+        {id: 100, name: 'Pull-ups', cat: 'gymnastics'}, 
+        {id: 101, name: 'Muscle-ups', cat: 'gymnastics'}, 
+        {id: 102, name: 'Toes-to-bar', cat: 'gymnastics'}, 
+        {id: 200, name: 'Push-ups', cat: 'bodyweight'}, 
+        {id: 201, name: 'Air Squats', cat: 'bodyweight'}, 
+        {id: 202, name: 'Burpees', cat: 'bodyweight'}, 
+        {id: 300, name: 'Running', cat: 'cardio'}, 
+        {id: 301, name: 'Rowing', cat: 'cardio'}, 
+        {id: 302, name: 'Double Unders', cat: 'cardio'} 
+    ];
+    
+    let movements = JSON.parse(localStorage.getItem('cf-movements')) || defaultMovements.map(m => ({ id: m.id, name: m.name, category: m.cat, description: '' }));
+    let workouts = JSON.parse(localStorage.getItem('cf-workouts')) || [];
+    
+    // --- DOM ELEMENTS ---
+    const tabs = { 
+        workout: document.getElementById('workout-tab'), 
+        history: document.getElementById('history-tab'), 
+        calendar: document.getElementById('calendar-tab'),
+        marks: document.getElementById('marks-tab'), 
+        progress: document.getElementById('progress-tab'), 
+        analysis: document.getElementById('analysis-tab'), 
+        movements: document.getElementById('movements-tab') 
+    };
+    
+    const views = { 
+        workout: document.getElementById('workout-form'), 
+        history: document.getElementById('history-view'), 
+        calendar: document.getElementById('calendar-view'),
+        marks: document.getElementById('marks-view'), 
+        progress: document.getElementById('progress-view'), 
+        analysis: document.getElementById('analysis-view'), 
+        movements: document.getElementById('movements-manager') 
+    };
+
+    // --- CALENDAR LOGIC ---
+    let calendar;
+    function initCalendar() {
+        const calendarEl = document.getElementById('calendar-container');
+        
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: false,
+            height: 'auto',
+            locale: 'es',
+            firstDay: 1,
+            dayMaxEvents: true,
+            events: workouts.map(workoutToEvent),
+            eventClick: function(info) {
+                editWorkout(info.event.extendedProps.workoutId);
+                setActiveTab('workout');
+            },
+            dateClick: function(info) {
+                resetWorkoutForm();
+                document.getElementById('workout-date').value = info.dateStr;
+                setActiveTab('workout');
+            }
+        });
+
+        calendar.render();
+
+        // Custom navigation buttons
+        document.getElementById('calendar-prev').addEventListener('click', () => {
+            calendar.prev();
+            updateCalendarTitle();
+        });
+
+        document.getElementById('calendar-next').addEventListener('click', () => {
+            calendar.next();
+            updateCalendarTitle();
+        });
+
+        document.getElementById('calendar-today').addEventListener('click', () => {
+            calendar.today();
+            updateCalendarTitle();
+        });
+
+        updateCalendarTitle();
+    }
+
+    function workoutToEvent(workout) {
+        let title, color;
+        
+        if (workout.type === 'wod') {
+            title = workout.wod.name || 'WOD';
+            color = '#3b82f6'; // blue
+        } else if (workout.type === 'weightlifting') {
+            const firstExercise = workout.weightlifting[0];
+            const movement = movements.find(m => m.id === firstExercise.movement);
+            title = movement ? movement.name : 'Weightlifting';
+            color = '#ef4444'; // red
+        } else { // mixed
+            title = 'Entrenamiento Mixto';
+            color = '#8b5cf6'; // purple
+        }
+
+        return {
+            title: title,
+            start: workout.date,
+            color: color,
+            extendedProps: {
+                workoutId: workout.id
+            }
+        };
+    }
+
+    function updateCalendarTitle() {
+        const view = calendar.view;
+        const title = `${view.currentStart.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`;
+        document.querySelector('#calendar-view h2').innerHTML = `
+            <i class="fas fa-calendar-alt text-blue-500 mr-2"></i> ${title.charAt(0).toUpperCase() + title.slice(1)}
+        `;
+    }
+
+    function refreshCalendar() {
+        if (calendar) {
+            calendar.removeAllEvents();
+            calendar.addEventSource(workouts.map(workoutToEvent));
+        }
+    }
+
+    // --- EXISTING FUNCTIONALITY ---
+    const wodSection = document.getElementById('wod-section'), 
+          weightliftingSection = document.getElementById('weightlifting-section'), 
+          workoutTypeSelect = document.getElementById('workout-type'), 
+          weightliftingExercisesContainer = document.getElementById('weightlifting-exercises'), 
+          workoutsList = document.getElementById('workouts-list'), 
+          wodMovementSelect = document.getElementById('wod-movement-select'), 
+          selectedWodMovements = document.getElementById('selected-wod-movements'), 
+          rpeOptions = document.querySelectorAll('.rpe-option'), 
+          wodRpeLevel = document.getElementById('wod-rpe-level');
+    
+    const templates = { 
+        weightliftingExercise: document.getElementById('weightlifting-exercise-template'), 
+        set: document.getElementById('set-template'), 
+        workoutHistory: document.getElementById('workout-history-template'), 
+        benchmarkWod: document.getElementById('benchmark-wod-template'), 
+        rmRecord: document.getElementById('rm-record-template') 
+    };
+    
+    let chartInstances = {};
+
+    // --- CORE APP LOGIC ---
+    Object.entries(tabs).forEach(([key, tab]) => tab.addEventListener('click', () => setActiveTab(key)));
+    
+    function setActiveTab(key) {
+        Object.values(tabs).forEach(t => { 
+            t.classList.remove('tab-active', 'text-blue-600'); 
+            t.classList.add('text-gray-500'); 
+        });
+        
+        Object.values(views).forEach(v => v.classList.add('hidden'));
+        tabs[key].classList.add('tab-active', 'text-blue-600'); 
+        tabs[key].classList.remove('text-gray-500');
+        views[key].classList.remove('hidden');
+        
+        const renderMap = { 
+            history: renderWorkoutsList, 
+            analysis: renderAnalysis, 
+            movements: renderMovementsList, 
+            marks: renderMarks, 
+            progress: renderProgress,
+            calendar: refreshCalendar
+        };
+        
+        if (renderMap[key]) renderMap[key]();
+    }
+
+    // --- MARKS & PROGRESS LOGIC ---
+    function parseWodResult(result) { 
+        const t = result.match(/(\d+):(\d+)/); 
+        if (t) return { v: parseInt(t[1])*60+parseInt(t[2]), t: 'time' }; 
+        const r = result.replace(/r|reps/gi,"").match(/(\d+)\s*\+\s*(\d+)/); 
+        if(r) return {v:parseInt(r[1])*1000+parseInt(r[2]),t:'reps'}; 
+        const s = result.match(/^\d+$/); 
+        if(s) return {v:parseInt(result),t:'reps'}; 
+        return {v:0,t:'other'};
+    }
+    
+    function isNewResultBetter(n, o) { 
+        if(n.t!==o.t) return false; 
+        if(n.t==='time') return n.v < o.v; 
+        if(n.t==='reps') return n.v > o.v; 
+        return false;
+    }
+    
+    function renderMarks() {
+        // A - WOD Benchmarks
+        const benchmarkList = document.getElementById('benchmark-list'); 
+        benchmarkList.innerHTML = '';
+        const benchmarkWods = workouts.filter(w => w.wod && w.wod.isBenchmark); 
+        const bestBenchmarks = {};
+        
+        benchmarkWods.forEach(w => { 
+            const n = w.wod.name.trim().toLowerCase(); 
+            const res = parseWodResult(w.wod.result); 
+            if (!bestBenchmarks[n] || isNewResultBetter(res, parseWodResult(bestBenchmarks[n].wod.result))) { 
+                bestBenchmarks[n] = w; 
+            }
+        });
+        
+        if (Object.keys(bestBenchmarks).length === 0) { 
+            benchmarkList.innerHTML = `<div class="col-span-full text-center text-gray-500 p-4">No hay WODs de benchmark registrados.</div>`; 
+        } else { 
+            Object.values(bestBenchmarks).forEach(w => { 
+                const card = templates.benchmarkWod.content.cloneNode(true); 
+                card.querySelector('.benchmark-name').textContent = w.wod.name; 
+                card.querySelector('.benchmark-result').textContent = w.wod.result; 
+                card.querySelector('.benchmark-date').textContent = new Date(w.date).toLocaleDateString('es-ES'); 
+                card.querySelector('.edit-benchmark').addEventListener('click', () => editWorkout(w.id)); 
+                card.querySelector('.remove-benchmark').addEventListener('click', () => { 
+                    if (confirm(`¿Quitar "${w.wod.name}" de tus marcas?`)) { 
+                        const wo = workouts.find(x => x.id === w.id); 
+                        if(wo) { 
+                            wo.wod.isBenchmark = false; 
+                            saveData(); 
+                            renderMarks(); 
+                            alert('Marca eliminada.'); 
+                        } 
+                    } 
+                }); 
+                benchmarkList.appendChild(card); 
+            }); 
+        }
+        
+        // B - RM Records
+        const rmList = document.getElementById('rm-list'); 
+        rmList.innerHTML = '';
+        const rmWorkouts = workouts.filter(w => w.weightlifting && w.weightlifting.some(ex => ex.isRM)); 
+        const bestRMs = {};
+        
+        rmWorkouts.forEach(w => { 
+            w.weightlifting.filter(ex => ex.isRM).forEach(ex => { 
+                const mov = movements.find(m => m.id === ex.movement); 
+                if(!mov) return; 
+                ex.sets.forEach(set => { 
+                    const key = `${ex.movement}-${set.reps}`; 
+                    if (!bestRMs[key] || set.weight > bestRMs[key].weight) { 
+                        bestRMs[key] = { 
+                            movementId: ex.movement, 
+                            movementName: mov.name, 
+                            reps: set.reps, 
+                            weight: set.weight, 
+                            date: w.date 
+                        }; 
+                    } 
+                }); 
+            }); 
+        });
+        
+        if (Object.keys(bestRMs).length === 0) { 
+            rmList.innerHTML = `<div class="col-span-full text-center text-gray-500 p-4">No hay RMs registrados. Marca "Test de RM" en un ejercicio.</div>`; 
+        } else { 
+            Object.values(bestRMs).sort((a,b) => a.movementName.localeCompare(b.movementName) || a.reps - b.reps).forEach(r => { 
+                const card = templates.rmRecord.content.cloneNode(true); 
+                card.querySelector('.rm-name').textContent = r.movementName; 
+                card.querySelector('.rm-result').textContent = `${r.weight}kg x ${r.reps}`; 
+                card.querySelector('.rm-date').textContent = new Date(r.date).toLocaleDateString('es-ES'); 
+                rmList.appendChild(card); 
+            }); 
+        }
+    }
+    
+    function renderProgress() {
+        // Render benchmark progress section
+        const select = document.getElementById('benchmark-progress-select'); 
+        select.innerHTML = ''; 
+        document.getElementById('benchmark-progress-select').removeEventListener('change', handleProgressChartChange);
+        
+        const uniqueBenchmarks = [...new Set(workouts.filter(w => w.wod && w.wod.isBenchmark).map(w => w.wod.name.trim()))];
+        
+        if(uniqueBenchmarks.length === 0) { 
+            select.innerHTML = '<option>No hay benchmarks para analizar</option>'; 
+            document.getElementById('progress-chart-container').classList.add('hidden'); 
+        } else { 
+            uniqueBenchmarks.sort().forEach(name => select.add(new Option(name, name))); 
+            document.getElementById('progress-chart-container').classList.remove('hidden'); 
+            document.getElementById('benchmark-progress-select').addEventListener('change', handleProgressChartChange); 
+            drawProgressChart(select.value); 
+        }
+        
+        // Render volume and intensity analysis
+        renderVolumeIntensityAnalysis();
+    }
+    
+    const handleProgressChartChange = e => drawProgressChart(e.target.value);
+    
+    function drawProgressChart(wodName) {
+        const wods = workouts.filter(w => w.wod && w.wod.name.trim().toLowerCase() === wodName.trim().toLowerCase()).sort((a,b) => new Date(a.date) - new Date(b.date));
+        const container = document.getElementById('progress-chart-container'), noData = document.getElementById('no-progress-data');
+        
+        if(wods.length < 2) { 
+            container.classList.add('hidden'); 
+            noData.classList.remove('hidden'); 
+            return; 
+        }
+        
+        container.classList.remove('hidden'); 
+        noData.classList.add('hidden'); 
+        
+        const parsedResults = wods.map(w => ({ date: new Date(w.date), ...parseWodResult(w.wod.result) }));
+        const resultType = parsedResults[0].t;
+        
+        const data = { 
+            labels: parsedResults.map(r => r.date.toLocaleDateString('es-ES', {day:'2-digit', month:'short'})), 
+            datasets: [{ 
+                label: `Resultado de ${wodName}`, 
+                data: parsedResults.map(r => r.v), 
+                borderColor: '#10b981', 
+                tension: 0.1, 
+                fill: false 
+            }] 
+        };
+        
+        const options = { 
+            responsive: true, 
+            scales: { 
+                y: { 
+                    reverse: resultType === 'time', 
+                    beginAtZero: false 
+                } 
+            } 
+        };
+        
+        createChart('progressChart', 'line', data, options);
+    }
+    
+    function renderVolumeIntensityAnalysis() {
+        const periodSelect = document.getElementById('volume-period-select');
+        const weeksSelect = document.getElementById('volume-weeks-select');
+        
+        periodSelect.addEventListener('change', () => updateVolumeIntensityCharts());
+        weeksSelect.addEventListener('change', () => updateVolumeIntensityCharts());
+        
+        updateVolumeIntensityCharts();
+    }
+    
+    function updateVolumeIntensityCharts() {
+        const period = document.getElementById('volume-period-select').value;
+        const weeks = parseInt(document.getElementById('volume-weeks-select').value);
+        
+        // Calculate date range
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - (weeks * 7));
+        
+        // Filter workouts in the date range
+        const filteredWorkouts = workouts.filter(w => {
+            const workoutDate = new Date(w.date);
+            return workoutDate >= startDate && workoutDate <= endDate;
+        });
+        
+        if (filteredWorkouts.length === 0) {
+            document.getElementById('volumeStackedChart').parentElement.innerHTML = '<p class="text-gray-500 text-center py-4">No hay datos para el periodo seleccionado.</p>';
+            document.getElementById('rpeTrendChart').parentElement.innerHTML = '<p class="text-gray-500 text-center py-4">No hay datos para el periodo seleccionado.</p>';
+            return;
+        }
+        
+        // Prepare data for charts
+        const { volumeData, rpeData } = prepareVolumeIntensityData(filteredWorkouts, period);
+        
+        // Draw Volume Stacked Chart
+        drawVolumeStackedChart(volumeData, period);
+        
+        // Draw RPE Trend Chart
+        drawRpeTrendChart(rpeData, period);
+    }
+    
+    function prepareVolumeIntensityData(workouts, period) {
+        const volumeData = {};
+        const rpeData = {};
+        
+        // Initialize data structures
+        workouts.forEach(workout => {
+            const workoutDate = new Date(workout.date);
+            let periodKey;
+            
+            if (period === 'weekly') {
+                // Get week number and year
+                const weekNumber = getWeekNumber(workoutDate);
+                periodKey = `Semana ${weekNumber.week} (${weekNumber.year})`;
+            } else {
+                // Monthly
+                const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                periodKey = `${monthNames[workoutDate.getMonth()]} ${workoutDate.getFullYear()}`;
+            }
+            
+            // Initialize period if not exists
+            if (!volumeData[periodKey]) {
+                volumeData[periodKey] = {
+                    weightlifting: 0,
+                    gymnastics: 0,
+                    bodyweight: 0,
+                    cardio: 0,
+                    other: 0
+                };
+            }
+            
+            if (!rpeData[periodKey]) {
+                rpeData[periodKey] = {
+                    totalRpe: 0,
+                    count: 0
+                };
+            }
+            
+            // Calculate volume by category
+            if (workout.weightlifting) {
+                workout.weightlifting.forEach(exercise => {
+                    const movement = movements.find(m => m.id === exercise.movement);
+                    const category = movement ? movement.category : 'weightlifting';
+                    
+                    exercise.sets.forEach(set => {
+                        const volume = set.reps * set.weight;
+                        volumeData[periodKey][category] += volume;
+                    });
+                });
+            }
+            
+            if (workout.wod) {
+                // For WODs, we'll count each movement as 1 "volume" point
+                workout.wod.movements.forEach(movementId => {
+                    const movement = movements.find(m => m.id === movementId);
+                    const category = movement ? movement.category : 'other';
+                    volumeData[periodKey][category] += 1;
+                });
+                
+                // Add RPE data
+                if (workout.wod.rpe) {
+                    rpeData[periodKey].totalRpe += parseInt(workout.wod.rpe);
+                    rpeData[periodKey].count += 1;
+                }
+            }
+        });
+        
+        // Sort periods chronologically
+        const sortedPeriods = Object.keys(volumeData).sort((a, b) => {
+            if (period === 'weekly') {
+                const [aWeek, aYear] = extractWeekAndYear(a);
+                const [bWeek, bYear] = extractWeekAndYear(b);
+                return aYear !== bYear ? aYear - bYear : aWeek - bWeek;
+            } else {
+                const [aMonth, aYear] = extractMonthAndYear(a);
+                const [bMonth, bYear] = extractMonthAndYear(b);
+                return aYear !== bYear ? aYear - bYear : aMonth - bMonth;
+            }
+        });
+        
+        // Prepare final data structures for charts
+        const sortedVolumeData = {};
+        const sortedRpeData = {};
+        
+        sortedPeriods.forEach(periodKey => {
+            sortedVolumeData[periodKey] = volumeData[periodKey];
+            
+            if (rpeData[periodKey]) {
+                sortedRpeData[periodKey] = {
+                    averageRpe: rpeData[periodKey].totalRpe / rpeData[periodKey].count
+                };
+            }
+        });
+        
+        return {
+            volumeData: sortedVolumeData,
+            rpeData: sortedRpeData
+        };
+    }
+    
+    function getWeekNumber(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return {
+            week: 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7),
+            year: d.getFullYear()
+        };
+    }
+    
+    function extractWeekAndYear(periodKey) {
+        const match = periodKey.match(/Semana (\d+) \((\d+)\)/);
+        return match ? [parseInt(match[1]), parseInt(match[2])] : [0, 0];
+    }
+    
+    function extractMonthAndYear(periodKey) {
+        const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        const parts = periodKey.split(' ');
+        const month = monthNames.indexOf(parts[0]);
+        const year = parseInt(parts[1]);
+        return [month, year];
+    }
+    
+    function drawVolumeStackedChart(volumeData, period) {
+        const periodKeys = Object.keys(volumeData);
+        
+        if (periodKeys.length === 0) {
+            document.getElementById('volumeStackedChart').parentElement.innerHTML = '<p class="text-gray-500 text-center py-4">No hay datos de volumen para mostrar.</p>';
+            return;
+        }
+        
+        const categoryColors = {
+            weightlifting: movementCategories.weightlifting.chartColor,
+            gymnastics: movementCategories.gymnastics.chartColor,
+            bodyweight: movementCategories.bodyweight.chartColor,
+            cardio: movementCategories.cardio.chartColor,
+            other: movementCategories.other.chartColor
+        };
+        
+        const datasets = Object.keys(movementCategories).map(category => ({
+            label: movementCategories[category].name,
+            data: periodKeys.map(periodKey => volumeData[periodKey][category]),
+            backgroundColor: categoryColors[category],
+            borderColor: categoryColors[category].replace('0.7', '1'),
+            borderWidth: 1
+        }));
+        
+        const data = {
+            labels: periodKeys,
+            datasets: datasets
+        };
+        
+        const options = {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: true,
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: period === 'weekly' ? 'Volumen Semanal' : 'Volumen Mensual'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            return `Total: ${total}`;
+                        }
+                    }
+                }
+            }
+        };
+        
+        createChart('volumeStackedChart', 'bar', data, options);
+    }
+    
+    function drawRpeTrendChart(rpeData, period) {
+        const periodKeys = Object.keys(rpeData);
+        
+        if (periodKeys.length === 0) {
+            document.getElementById('rpeTrendChart').parentElement.innerHTML = '<p class="text-gray-500 text-center py-4">No hay datos de RPE para mostrar.</p>';
+            return;
+        }
+        
+        const data = {
+            labels: periodKeys,
+            datasets: [{
+                label: 'Intensidad Media (RPE)',
+                data: periodKeys.map(periodKey => rpeData[periodKey].averageRpe),
+                borderColor: 'rgba(234, 88, 12, 1)',
+                backgroundColor: 'rgba(234, 88, 12, 0.2)',
+                tension: 0.3,
+                fill: true
+            }]
+        };
+        
+        const options = {
+            responsive: true,
+            scales: {
+                y: {
+                    min: 1,
+                    max: 6,
+                    ticks: {
+                        stepSize: 1
+                    },
+                    title: {
+                        display: true,
+                        text: 'Nivel de Esfuerzo (RPE)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: period === 'weekly' ? 'Semanas' : 'Meses'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `RPE: ${context.raw.toFixed(1)}`;
+                        }
+                    }
+                }
+            }
+        };
+        
+        createChart('rpeTrendChart', 'line', data, options);
+    }
+
+    // --- WORKOUT FORM LOGIC ---
+    function resetWorkoutForm() { 
+        document.getElementById('workout-form').reset(); 
+        document.getElementById('editing-workout-id').value = ''; 
+        document.getElementById('save-workout').innerHTML = '<i class="fas fa-save mr-2"></i> Guardar Entrenamiento'; 
+        selectedWodMovements.innerHTML = ''; 
+        weightliftingExercisesContainer.innerHTML = ''; 
+        addWeightliftingExercise(); 
+        rpeOptions[2].click(); 
+        workoutTypeSelect.value = 'wod'; 
+        workoutTypeSelect.dispatchEvent(new Event('change')); 
+    }
+    
+    workoutTypeSelect.addEventListener('change', () => { 
+        const type = workoutTypeSelect.value; 
+        wodSection.classList.toggle('hidden', type === 'weightlifting'); 
+        weightliftingSection.classList.toggle('hidden', type === 'wod'); 
+    });
+    
+    rpeOptions.forEach(o => o.addEventListener('click', function() { 
+        rpeOptions.forEach(opt => opt.classList.remove('bg-blue-100')); 
+        this.classList.add('bg-blue-100'); 
+        wodRpeLevel.value = this.dataset.level; 
+    }));
+    
+    function populateMovementSelects() { 
+        wodMovementSelect.innerHTML = '<option value="">Selecciona un movimiento</option>'; 
+        movements.forEach(m => wodMovementSelect.add(new Option(m.name, m.id))); 
+    }
+    
+    document.getElementById('add-wod-movement').addEventListener('click', () => { 
+        const m = movements.find(x => x.id == wodMovementSelect.value); 
+        if (m) { 
+            addMovementToWod(m); 
+            wodMovementSelect.value = ''; 
+        } 
+    });
+    
+    function addMovementToWod(m) { 
+        const c = movementCategories[m.category]; 
+        const chip = document.createElement('div'); 
+        chip.className = `category-chip flex items-center ${c.color} px-3 py-1 rounded-full text-sm font-medium`; 
+        chip.dataset.id = m.id; 
+        chip.innerHTML = `<i class="fas ${c.icon} mr-2"></i> ${m.name} <button class="ml-2 text-gray-500 hover:text-gray-700 remove-movement"><i class="fas fa-times"></i></button>`; 
+        selectedWodMovements.appendChild(chip); 
+        chip.querySelector('.remove-movement').addEventListener('click', e => { 
+            e.stopPropagation(); 
+            chip.remove(); 
+        }); 
+    }
+    
+    document.getElementById('add-weightlifting-exercise').addEventListener('click', () => addWeightliftingExercise());
+    
+    function addWeightliftingExercise(exData) {
+        const el = templates.weightliftingExercise.content.cloneNode(true); 
+        const container = el.querySelector('.weightlifting-exercise'); 
+        const movementSelect = container.querySelector('.exercise-movement');
+        
+        movements.filter(m => m.category === 'weightlifting').forEach(m => movementSelect.add(new Option(m.name, m.id)));
+        
+        const setsContainer = container.querySelector('.exercise-sets');
+        
+        if(exData) { 
+            movementSelect.value = exData.movement; 
+            container.querySelector('.exercise-rounds').value = exData.rounds; 
+            container.querySelector('.exercise-is-rm').checked = exData.isRM; 
+            if (exData.sets.length > 0) exData.sets.forEach(s => addSetToExercise(setsContainer, s.reps, s.weight)); 
+            else addSetToExercise(setsContainer); 
+        } else { 
+            addSetToExercise(setsContainer); 
+        }
+        
+        container.querySelector('.add-set').addEventListener('click', () => addSetToExercise(setsContainer)); 
+        container.querySelector('.delete-exercise').addEventListener('click', () => { 
+            if (confirm('¿Eliminar este ejercicio?')) container.remove(); 
+        });
+        
+        weightliftingExercisesContainer.appendChild(el);
+    }
+    
+    function addSetToExercise(container, reps = '', weight = '') { 
+        const el = templates.set.content.cloneNode(true); 
+        const row = el.querySelector('.set-row'); 
+        row.querySelector('.set-reps').value = reps; 
+        row.querySelector('.set-weight').value = weight; 
+        row.querySelector('.delete-set').addEventListener('click', () => { 
+            if (container.children.length > 1) row.remove(); 
+            else alert('Cada ejercicio debe tener al menos una serie.'); 
+        }); 
+        container.appendChild(el); 
+    }
+
+    // --- DATA RENDERING & MANAGEMENT ---
+    function renderWorkoutsList(filter = 'all') {
+        workoutsList.innerHTML = ''; 
+        const filtered = filter === 'all' ? workouts : workouts.filter(w => w.type === filter);
+        
+        if (filtered.length === 0) {
+            return workoutsList.innerHTML = `<div class="bg-gray-50 p-8 text-center rounded-lg"><i class="fas fa-dumbbell text-gray-300 text-4xl mb-3"></i><p class="text-gray-500">No hay entrenamientos registrados</p></div>`;
+        }
+        
+        filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(w => {
+            const el = templates.workoutHistory.content.cloneNode(true); 
+            const container = el.querySelector('.history-item');
+            
+            container.querySelector('.workout-date').textContent = new Date(w.date).toLocaleDateString('es-ES'); 
+            const typeEl = container.querySelector('.workout-type');
+            
+            typeEl.textContent = w.type === 'wod'?'WOD':w.type === 'weightlifting'?'Weightlifting':'Mixto'; 
+            typeEl.className = `workout-type px-2 py-1 rounded-full text-xs ${w.type === 'wod'?'bg-blue-100 text-blue-800':w.type === 'weightlifting'?'bg-red-100 text-red-800':'bg-purple-100 text-purple-800'}`;
+            
+            const details = container.querySelector('.workout-details'); 
+            details.innerHTML = '';
+            
+            if (w.wod) { 
+                const wodDiv = document.createElement('div'); 
+                wodDiv.className = 'bg-blue-50 p-3 rounded-lg'; 
+                const isBenchmark = w.wod.isBenchmark ? ' <i class="fas fa-trophy text-yellow-500 ml-2" title="WOD de Benchmark"></i>' : ''; 
+                wodDiv.innerHTML = `<h4 class="font-medium text-blue-800 mb-1"><i class="fas fa-heartbeat mr-2"></i> ${w.wod.name}${isBenchmark}</h4><p class="text-sm text-gray-700 mb-1">Estructura: ${getWodStructureName(w.wod.structure)}</p><p class="text-sm text-gray-700 mb-1">Movimientos: ${w.wod.movements.map(id => movements.find(m => m.id === id)?.name || '?').join(', ')}</p><p class="text-sm text-gray-700 mb-1"><b>Resultado: ${w.wod.result}</b></p><p class="text-sm text-gray-700">RPE: ${w.wod.rpe}/6</p>`; 
+                details.appendChild(wodDiv); 
+            }
+            
+            if (w.weightlifting) { 
+                const wlDiv = document.createElement('div'); 
+                wlDiv.className = 'bg-red-50 p-3 rounded-lg mt-2'; 
+                let exercisesHTML = `<h4 class="font-medium text-red-800 mb-2"><i class="fas fa-dumbbell mr-2"></i> Weightlifting</h4>`; 
+                w.weightlifting.forEach(ex => { 
+                    const mov = movements.find(m => m.id === ex.movement); 
+                    const isRM = ex.isRM ? ' <i class="fas fa-medal text-red-500 ml-1" title="Test de RM"></i>' : ''; 
+                    exercisesHTML += `<div class="mb-2 pl-2"><p class="text-sm font-medium text-gray-800">${mov?.name||'?'}${isRM}</p><p class="text-xs text-gray-700 mt-1">${ex.sets.map(s => `${s.reps}x${s.weight}kg`).join(', ')}</p></div>`; 
+                }); 
+                wlDiv.innerHTML = exercisesHTML; 
+                details.appendChild(wlDiv); 
+            }
+            
+            if (w.notes) { 
+                const notesDiv = document.createElement('div'); 
+                notesDiv.className = 'bg-gray-50 p-3 rounded-lg mt-2'; 
+                notesDiv.innerHTML = `<h4 class="font-medium text-gray-800 mb-1"><i class="fas fa-sticky-note mr-2"></i> Notas</h4><p class="text-sm text-gray-700">${w.notes}</p>`; 
+                details.appendChild(notesDiv); 
+            }
+            
+            container.querySelector('.edit-workout').addEventListener('click', () => editWorkout(w.id)); 
+            container.querySelector('.delete-workout').addEventListener('click', () => { 
+                if (confirm('¿Eliminar este entrenamiento?')) { 
+                    workouts = workouts.filter(wo => wo.id !== w.id); 
+                    saveData(); 
+                    renderWorkoutsList(filter); 
+                    refreshCalendar();
+                }
+            });
+            
+            workoutsList.appendChild(el);
+        });
+    }
+    
+    function renderMovementsList() { 
+        const container = document.getElementById('movements-list'); 
+        container.innerHTML = ''; 
+        movements.forEach(m => { 
+            const cat = movementCategories[m.category]; 
+            const card = document.createElement('div'); 
+            card.className = `bg-white p-4 rounded-lg border border-gray-200 shadow-sm`; 
+            card.innerHTML = `<div class="flex items-center mb-2"><i class="fas ${cat.icon} mr-2 text-${cat.color.split('-')[1]}-500"></i><h4 class="font-medium">${m.name}</h4></div><p class="text-sm text-gray-600 mb-3">${m.description||'Sin descripción'}</p><div class="flex justify-between items-center text-xs"><span class="px-2 py-1 rounded-full ${cat.color}">${cat.name}</span><button class="delete-movement text-red-500 hover:text-red-700" data-id="${m.id}"><i class="fas fa-trash"></i></button></div>`; 
+            card.querySelector('.delete-movement').addEventListener('click', () => { 
+                if (confirm(`¿Eliminar "${m.name}"?`)) { 
+                    movements = movements.filter(mov => mov.id !== m.id); 
+                    saveData(); 
+                    renderMovementsList(); 
+                    populateMovementSelects(); 
+                }
+            }); 
+            container.appendChild(card); 
+        }); 
+    }
+
+    // --- ANALYSIS CHARTS ---
+    function renderAnalysis() { 
+        const hasData = workouts.length > 0; 
+        document.getElementById('analysis-content').classList.toggle('hidden', !hasData); 
+        document.getElementById('no-analysis-data').classList.toggle('hidden', hasData); 
+        if (!hasData) return; 
+        
+        Object.values(chartInstances).forEach(c => c.destroy()); 
+        renderStats(); 
+        renderFrequencyChart(); 
+        renderWodStructureChart(); 
+        renderMovementCategoryChart(); 
+        renderTopMovementsChart(); 
+        renderVolumeChart(); 
+    }
+    
+    function renderStats() { 
+        const wods = workouts.filter(w => w.wod); 
+        document.getElementById('total-workouts-stat').textContent = workouts.length; 
+        document.getElementById('total-wods-stat').textContent = wods.length; 
+        document.getElementById('total-benchmark-wods-stat').textContent = wods.filter(w => w.wod?.isBenchmark).length; 
+    }
+    
+    function createChart(id, type, data, options) { 
+        if(chartInstances[id]) chartInstances[id].destroy(); 
+        chartInstances[id] = new Chart(document.getElementById(id).getContext('2d'), { type, data, options }); 
+    }
+    
+    function renderFrequencyChart() { 
+        const labels = [], data = [], counts = {}; 
+        const today = new Date(), pastDate = new Date(); 
+        pastDate.setMonth(today.getMonth() - 5); 
+        const monthNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]; 
+        
+        for (let i=0; i<6; i++) { 
+            let d = new Date(pastDate.getFullYear(), pastDate.getMonth()+i, 1); 
+            const l = `${monthNames[d.getMonth()]} ${d.getFullYear()}`; 
+            labels.push(l); 
+            counts[l] = 0; 
+        } 
+        
+        workouts.forEach(w => { 
+            const d = new Date(w.date); 
+            if (d >= pastDate && d <= today) { 
+                const l = `${monthNames[d.getMonth()]} ${d.getFullYear()}`; 
+                if(counts[l]!==undefined) counts[l]++; 
+            }
+        }); 
+        
+        labels.forEach(l => data.push(counts[l])); 
+        
+        createChart('frequencyChart', 'line', { 
+            labels, 
+            datasets: [{ 
+                label: 'Nº Entrenamientos', 
+                data, 
+                fill: true, 
+                backgroundColor: 'rgba(139,92,246,0.2)', 
+                borderColor: 'rgba(139,92,246,1)', 
+                tension: 0.3 
+            }] 
+        }, { 
+            responsive: true, 
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { 
+                        stepSize: 1 
+                    } 
+                } 
+            } 
+        }); 
+    }
+    
+    function renderWodStructureChart() { 
+        const counts = {}; 
+        workouts.filter(w=>w.wod).forEach(w => { 
+            const s = getWodStructureName(w.wod.structure); 
+            counts[s] = (counts[s]||0)+1; 
+        }); 
+        
+        createChart('wodStructureChart', 'doughnut', { 
+            labels: Object.keys(counts), 
+            datasets: [{ 
+                data: Object.values(counts), 
+                backgroundColor: ['rgba(59,130,246,0.7)','rgba(239,68,68,0.7)','rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(139,92,246,0.7)','rgba(217,70,239,0.7)'], 
+                hoverOffset: 4 
+            }] 
+        }, { 
+            responsive: true 
+        }); 
+    }
+    
+    function renderMovementCategoryChart() { 
+        const counts = {}; 
+        Object.keys(movementCategories).forEach(cat => counts[cat] = 0); 
+        
+        workouts.forEach(w => { 
+            if (w.wod) w.wod.movements.forEach(id => { 
+                const m = movements.find(mov => mov.id === id); 
+                if(m) counts[m.category]++; 
+            }); 
+            if (w.weightlifting) w.weightlifting.forEach(() => counts['weightlifting']++); 
+        }); 
+        
+        createChart('movementCategoryChart', 'radar', { 
+            labels: Object.values(movementCategories).map(c => c.name), 
+            datasets: [{ 
+                label: 'Frecuencia', 
+                data: Object.values(counts), 
+                fill: true, 
+                backgroundColor: 'rgba(139,92,246,0.2)', 
+                borderColor: 'rgba(139,92,246,1)' 
+            }] 
+        }, { 
+            responsive: true, 
+            scales: { 
+                r: { 
+                    beginAtZero: true, 
+                    ticks: { 
+                        stepSize: 1 
+                    } 
+                } 
+            } 
+        }); 
+    }
+    
+    function renderTopMovementsChart() { 
+        const counts = {}; 
+        workouts.forEach(w => { 
+            if (w.wod) w.wod.movements.forEach(id => counts[id] = (counts[id]||0)+1); 
+            if (w.weightlifting) w.weightlifting.forEach(ex => counts[ex.movement] = (counts[ex.movement]||0)+1); 
+        }); 
+        
+        const top5 = Object.entries(counts).sort(([,a],[,b]) => b-a).slice(0,5); 
+        
+        createChart('topMovementsChart', 'bar', { 
+            labels: top5.map(([id]) => movements.find(m => m.id == id)?.name || '?'), 
+            datasets: [{ 
+                label: 'Nº de Veces', 
+                data: top5.map(([,c]) => c), 
+                backgroundColor: 'rgba(59,130,246,0.7)' 
+            }] 
+        }, { 
+            responsive: true, 
+            indexAxis: 'y' 
+        }); 
+    }
+    
+    function renderVolumeChart() { 
+        const select = document.getElementById('volume-movement-select'); 
+        select.innerHTML = ''; 
+        const wlMovements = movements.filter(m => m.category === 'weightlifting'); 
+        if (wlMovements.length === 0) return; 
+        
+        wlMovements.forEach(m => select.add(new Option(m.name, m.id))); 
+        select.removeEventListener('change', handleVolumeChartChange); 
+        select.addEventListener('change', handleVolumeChartChange); 
+        drawVolumeChart(wlMovements[0].id); 
+    }
+    
+    const handleVolumeChartChange = e => drawVolumeChart(e.target.value);
+    
+    function drawVolumeChart(movementId) { 
+        movementId = parseInt(movementId); 
+        const data = []; 
+        
+        workouts.forEach(w => { 
+            if (w.weightlifting) { 
+                w.weightlifting.forEach(ex => { 
+                    if (ex.movement === movementId) { 
+                        data.push({ 
+                            date: new Date(w.date), 
+                            volume: ex.sets.reduce((sum, s) => sum + (s.reps*s.weight), 0) 
+                        }); 
+                    } 
+                }); 
+            } 
+        }); 
+        
+        data.sort((a,b) => a.date - b.date); 
+        
+        createChart('volumeChart', 'line', { 
+            labels: data.map(d => d.date.toLocaleDateString('es-ES')), 
+            datasets: [{ 
+                label: `Volumen Total (reps*kg)`, 
+                data: data.map(d => d.volume), 
+                borderColor: 'rgba(239,68,68,1)', 
+                tension: 0.1 
+            }] 
+        }, { 
+            responsive: true, 
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    title: { 
+                        display: true, 
+                        text: 'Volumen (kg)' 
+                    } 
+                } 
+            } 
+        }); 
+    }
+    
+    // --- DATA SAVE & EDIT LOGIC ---
+    function getWodStructureName(s) { 
+        return ({ 
+            'amrap':'AMRAP', 
+            'fortime':'For Time', 
+            'rft':'RFT', 
+            'emom':'EMOM', 
+            'tabata':'TABATA', 
+            'chipper':'Chipper', 
+            'ladder':'Ladder', 
+            'custom':'Personalizado' 
+        })[s] || s; 
+    }
+    
+    function editWorkout(id) { 
+        const w = workouts.find(x => x.id === id); 
+        if (!w) return; 
+        
+        resetWorkoutForm(); 
+        setActiveTab('workout'); 
+        document.getElementById('editing-workout-id').value = w.id; 
+        document.getElementById('save-workout').innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Actualizar'; 
+        document.getElementById('workout-date').value = w.date; 
+        document.getElementById('workout-type').value = w.type; 
+        document.getElementById('workout-notes').value = w.notes || ''; 
+        
+        if (w.wod) { 
+            document.getElementById('wod-name').value = w.wod.name; 
+            document.getElementById('wod-structure').value = w.wod.structure; 
+            document.getElementById('wod-result').value = w.wod.result; 
+            document.getElementById('wod-is-benchmark').checked = w.wod.isBenchmark || false; 
+            rpeOptions.forEach(opt => { 
+                if (opt.dataset.level == w.wod.rpe) opt.click() 
+            }); 
+            w.wod.movements.forEach(id => { 
+                const m = movements.find(mov => mov.id === id); 
+                if(m) addMovementToWod(m); 
+            }); 
+        } 
+        
+        if (w.weightlifting) { 
+            weightliftingExercisesContainer.innerHTML = ''; 
+            w.weightlifting.forEach(ex => addWeightliftingExercise(ex)); 
+        } 
+        
+        workoutTypeSelect.dispatchEvent(new Event('change')); 
+    }
+    
+    document.getElementById('add-new-movement').addEventListener('click', () => { 
+        const name = document.getElementById('new-movement-name').value.trim(); 
+        if (!name) return alert('El nombre es obligatorio'); 
+        if (movements.some(m => m.name.toLowerCase() === name.toLowerCase())) return alert('Ese movimiento ya existe.'); 
+        
+        const newId = movements.length > 0 ? Math.max(...movements.map(m => m.id)) + 1 : 1; 
+        movements.push({ 
+            id: newId, 
+            name, 
+            category: document.getElementById('new-movement-category').value, 
+            description: document.getElementById('new-movement-description').value.trim() 
+        }); 
+        
+        saveData(); 
+        populateMovementSelects(); 
+        renderMovementsList(); 
+        document.getElementById('new-movement-name').value = ''; 
+        document.getElementById('new-movement-description').value = ''; 
+    });
+    
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', function() { 
+        document.querySelectorAll('.filter-btn').forEach(b => { 
+            b.classList.remove('bg-blue-100', 'text-blue-800'); 
+            b.classList.add('bg-gray-100', 'text-gray-800'); 
+        }); 
+        this.classList.remove('bg-gray-100', 'text-gray-800'); 
+        this.classList.add('bg-blue-100', 'text-blue-800'); 
+        renderWorkoutsList(this.dataset.filter); 
+    }));
+    
+    document.getElementById('export-csv').addEventListener('click', () => { 
+        if (workouts.length === 0) return alert('No hay entrenamientos para exportar'); 
+        
+        let csv = "Fecha,Tipo,WOD Nombre,Es Benchmark,WOD Estructura,WOD Movimientos,WOD Resultado,WOD RPE,Weightlifting Ejercicios,Weightlifting Series,Notas\n"; 
+        
+        workouts.forEach(w => { 
+            const row = [
+                w.date,
+                w.type,
+                w.wod?`"${w.wod.name}"`:'',
+                w.wod?(w.wod.isBenchmark?'Sí':'No'):'',
+                w.wod?getWodStructureName(w.wod.structure):'',
+                w.wod?`"${w.wod.movements.map(id=>movements.find(m=>m.id===id)?.name||'?').join(',')}"`:'',
+                w.wod?`"${w.wod.result}"`:'',
+                w.wod?w.wod.rpe:'',
+                w.weightlifting?`"${w.weightlifting.map(ex=>movements.find(m=>m.id===ex.movement)?.name||'?').join(',')}"`:'',
+                w.weightlifting?`"${w.weightlifting.map(ex=>ex.sets.map(s=>`${s.reps}x${s.weight}kg`).join('|')).join('||')}"`:'',
+                w.notes?`"${w.notes}"`:''].join(','); 
+            csv += row + "\n"; 
+        }); 
+        
+        const link = document.createElement("a"); 
+        link.href = 'data:text/csv;charset=utf-8,'+encodeURI(csv); 
+        link.download = "crossfit_entrenamientos.csv"; 
+        document.body.appendChild(link); 
+        link.click(); 
+        document.body.removeChild(link); 
+    });
+    
+    document.getElementById('save-workout').addEventListener('click', () => {
+        const editingId = parseInt(document.getElementById('editing-workout-id').value);
+        const date = document.getElementById('workout-date').value; 
+        if (!date) return alert('Por favor selecciona una fecha');
+        
+        let wodData = null, weightliftingData = null;
+        
+        if (workoutTypeSelect.value !== 'weightlifting') { 
+            const name = document.getElementById('wod-name').value.trim(), 
+                  result = document.getElementById('wod-result').value.trim(); 
+            if (!name || !result || selectedWodMovements.children.length === 0) return alert('Completa los campos del WOD y añade movimientos.'); 
+            
+            wodData = { 
+                name, 
+                structure: document.getElementById('wod-structure').value, 
+                isBenchmark: document.getElementById('wod-is-benchmark').checked, 
+                movements: Array.from(selectedWodMovements.querySelectorAll('[data-id]')).map(el => parseInt(el.dataset.id)), 
+                result, 
+                rpe: parseInt(wodRpeLevel.value) 
+            }; 
+        }
+        
+        if (workoutTypeSelect.value !== 'wod') { 
+            if (weightliftingExercisesContainer.children.length === 0) return alert('Añade al menos un ejercicio de weightlifting.'); 
+            
+            try { 
+                weightliftingData = Array.from(weightliftingExercisesContainer.querySelectorAll('.weightlifting-exercise')).map(el => { 
+                    const movId = parseInt(el.querySelector('.exercise-movement').value); 
+                    if (isNaN(movId)) throw new Error('Selecciona un movimiento válido.'); 
+                    
+                    const sets = Array.from(el.querySelectorAll('.set-row')).map(r => { 
+                        const reps=r.querySelector('.set-reps').value, 
+                              w=r.querySelector('.set-weight').value; 
+                        if(!reps||!w) throw new Error('Completa reps y peso.'); 
+                        return {reps:parseInt(reps),weight:parseFloat(w)}; 
+                    }); 
+                    
+                    return { 
+                        movement: movId, 
+                        rounds: parseInt(el.querySelector('.exercise-rounds').value), 
+                        sets, 
+                        isRM: el.querySelector('.exercise-is-rm').checked 
+                    }; 
+                }); 
+            } catch (e) { 
+                return alert(e.message); 
+            } 
+        }
+        
+        const workoutData = { 
+            date, 
+            type: workoutTypeSelect.value, 
+            notes: document.getElementById('workout-notes').value.trim(), 
+            wod: wodData, 
+            weightlifting: weightliftingData 
+        };
+        
+        if (editingId) { 
+            const index = workouts.findIndex(w => w.id === editingId); 
+            if (index > -1) workouts[index] = { id: editingId, ...workoutData }; 
+            alert('¡Entrenamiento actualizado!'); 
+        } else { 
+            workoutData.id = workouts.length > 0 ? Math.max(...workouts.map(w => w.id)) + 1 : 1; 
+            workouts.push(workoutData); 
+            alert('¡Entrenamiento guardado!'); 
+        }
+        
+        saveData(); 
+        resetWorkoutForm(); 
+        setActiveTab('history');
+        refreshCalendar();
+    });
+    
+    function saveData() { 
+        localStorage.setItem('cf-movements', JSON.stringify(movements)); 
+        localStorage.setItem('cf-workouts', JSON.stringify(workouts)); 
+    }
+    
+    // --- INITIALIZATION ---
+    populateMovementSelects(); 
+    renderMovementsList(); 
+    addWeightliftingExercise();
+    initCalendar();
+});
+</script>
+</body>
+</html>
